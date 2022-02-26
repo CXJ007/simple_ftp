@@ -17,6 +17,8 @@
 
 #include "servershell.h"
 
-
+#define CLIENT_CMD_LS   0
+#define CLIENT_CMD_PWD  1
+#define CLIENT_CMD_CD   2
 
 #endif

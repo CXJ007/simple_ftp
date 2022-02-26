@@ -30,17 +30,20 @@
 #define OK 0
 #define ERR -1
 
+#define FILE_NAME_LEN 40
+
 typedef struct client_list{
     struct client_list *next;
     int pid;
     char ipbuf[16];
 }client_list;
 
+
 typedef struct server_cmd{
     int cmdswitch;
     char cmdbuf[10];
     int cmdnum;
-    char cmdargc[10][20];
+    char cmdargc[10][FILE_NAME_LEN];
 }server_cmd;
 
 int get_local_addr(char *addrbuf);
@@ -48,13 +51,5 @@ void *server_guard(void *argc);
 int server_hand(int fd);
 void add_client(struct client_list *head, int pid, char *ipbuf);
 void rm_client(struct client_list *head, int pid, char *ipbuf);
-void show_client(struct client_list *head);
-int get_terminal_cmd(struct server_cmd *cmd);
-void func_ls_pwd(struct server_cmd cmd);
-void func_cd(struct server_cmd cmd);
-void func_help(void);
-void func_show(struct client_list *head);
-void func_kill(struct server_cmd cmd);
-void func_quit(struct client_list *head);
 
 #endif

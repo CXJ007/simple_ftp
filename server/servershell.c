@@ -1,5 +1,13 @@
 #include "servershell.h"
 
+static void show_client(struct client_list *head);
+static int get_terminal_cmd(struct server_cmd *cmd);
+static void func_ls_pwd(struct server_cmd cmd);
+static void func_cd(struct server_cmd cmd);
+static void func_help(void);
+static void func_show(struct client_list *head);
+static void func_kill(struct server_cmd cmd);
+static void func_quit(struct client_list *head);
 ///////////////////////////father
 
 void *server_guard(void *argc)
@@ -38,7 +46,7 @@ void *server_guard(void *argc)
 
 //一般情况下服务器不会主动杀的更别说杀自己了
 
-void func_quit(struct client_list *head)
+static void func_quit(struct client_list *head)
 {
     //show_client(struct client_list *head)
     struct client_list *tmp = head;
@@ -56,7 +64,7 @@ void func_quit(struct client_list *head)
     pthread_exit(NULL);
 }
 
-void func_kill(struct server_cmd cmd)
+static void func_kill(struct server_cmd cmd)
 {
     union sigval value;
     int i;
@@ -65,12 +73,12 @@ void func_kill(struct server_cmd cmd)
     }
 }
 
-void func_show(struct client_list *head)
+static void func_show(struct client_list *head)
 {
     show_client(head);
 }
 
-void func_help(void)
+static void func_help(void)
 {
     printf("============SIMPLE TFT=============\n");
     printf("  CMD:\n\thelp\n\tquit:quit server(ending service is dangerous)\n\t\
@@ -80,7 +88,7 @@ ls:same as shell\n\tpwd\n\tcd: cd .. / cd path(bug)\n");
     printf("===================================\n");
 }
 
-void func_ls_pwd(struct server_cmd cmd)
+static void func_ls_pwd(struct server_cmd cmd)
 {
     FILE *fd;
     char buf[1024];
@@ -95,13 +103,13 @@ void func_ls_pwd(struct server_cmd cmd)
 
 //bug strstr是从前往后，应从后往前不过我懒了
 //int readlink(const char * path ,char * buf,size_t bufsiz);后面发现这个
-void func_cd(struct server_cmd cmd)
+static void func_cd(struct server_cmd cmd)
 {
     int ret;
-    char tmpbuf[40];
-    char path[40];
+    char tmpbuf[FILE_NAME_LEN];
+    char path[FILE_NAME_LEN];
     char *p = NULL;
-    char tmpp[40];
+    char tmpp[FILE_NAME_LEN];
     memset(path, 0 ,sizeof(path));
     memset(tmpbuf, 0 ,sizeof(tmpbuf));
 
@@ -142,10 +150,11 @@ void func_cd(struct server_cmd cmd)
 
 }
 
-int get_terminal_cmd(struct server_cmd *cmd)
+//bug strstr 比如输入lss会成功（我懒了）但是linux会提示 (修复)
+static int get_terminal_cmd(struct server_cmd *cmd)
 {
     char buf[128];
-    char (*tmp)[20] = cmd->cmdargc;
+    char (*tmp)[FILE_NAME_LEN] = cmd->cmdargc;
 
     memset(cmd,0,sizeof(struct server_cmd));
     // puts("==>");
@@ -155,15 +164,15 @@ int get_terminal_cmd(struct server_cmd *cmd)
     if(strcmp(buf, "\n") == 0){
         cmd->cmdswitch = SERVER_CMD_NULL;
         return OK;
-    }else if(strstr(buf, "ls") == buf){
+    }else if((strstr(buf, "ls")==buf) && ((*(buf+2)=='\n')||(*(buf+2)==32))){ //32是空格
         strcpy(cmd->cmdbuf,buf);
         cmd->cmdswitch = SERVER_CMD_LS;
         return OK;
-    }else if(strstr(buf, "pwd") == buf){
+    }else if(strcmp(buf, "pwd\n") == 0){
         strcpy(cmd->cmdbuf,buf);
         cmd->cmdswitch = SERVER_CMD_PWD;
         return OK;
-    }else if(strstr(buf, "cd") == buf){
+    }else if((strstr(buf, "cd")==buf) && (*(buf+2)==32)){
         char *p = NULL;
         cmd->cmdswitch = SERVER_CMD_CD;
         p = strtok(buf, " /");
@@ -175,13 +184,13 @@ int get_terminal_cmd(struct server_cmd *cmd)
         }
         //printf("%s    %s\n", *cmd->cmdargc, *(cmd->cmdargc+1));
         return OK;
-    }else if(strstr(buf, "help") == buf){
+    }else if(strcmp(buf, "help\n") == 0){
         cmd->cmdswitch = SERVER_CMD_HELP;
         return OK;
-    }else if(strstr(buf, "show") == buf){
+    }else if(strcmp(buf, "show\n") == 0){
         cmd->cmdswitch = SERVER_CMD_SHOW;
         return OK;
-    }else if(strstr(buf, "kill") == buf){
+    }else if((strstr(buf, "kill")==buf) && (*(buf+4)==32)){
         char *p = NULL;
         cmd->cmdswitch = SERVER_CMD_KILL;
         p = strtok(buf, " ");
@@ -192,7 +201,7 @@ int get_terminal_cmd(struct server_cmd *cmd)
             p = strtok(NULL, " ");
         }
         return OK;
-    }else if(strstr(buf, "quit") == buf){
+    }else if(strcmp(buf, "quit\n") == 0){
         cmd->cmdswitch = SERVER_CMD_QUITE;
         return OK;
     }
@@ -232,7 +241,7 @@ void rm_client(struct client_list *head, int pid, char *ipbuf)
    }
 }
 
-void show_client(struct client_list *head)
+static void show_client(struct client_list *head)
 {
     client_list *tmp = head;
     printf("======SERVER IP:%s port:%d\n",tmp->ipbuf,tmp->pid);
