@@ -88,20 +88,19 @@ int main(int argc, char **argv)
                 perror("accept:");
         }else{
             pid = fork();
-            if(pid == 0){   
+            if(pid == 0){
                 //printf("======CONNECT IP:%s PID:%d\n",inet_ntoa(sock_addr.sin_addr),getpid());
                 ret = server_hand(c_fd);
-                if(ret == DISCONNECT){
-                    //printf("======DISCONNECT IP:%s PID:%d\n",inet_ntoa(sock_addr.sin_addr),getpid());
-                    union sigval value;
-                    value.sival_int = getpid();
-                    sigqueue(getppid(),SIGRTMAX-1,value);
-                }
-                close(c_fd);
+                // char quitbuf[] = "quit";
+                // write(c_fd,quitbuf,sizeof(quitbuf))这里奇怪的bug详细可以看static void func_kill(struct server_cmd cmd)
+                union sigval value;
+                value.sival_int = getpid();
+                sigqueue(getppid(),SIGRTMAX-1,value);
+                //close(c_fd);
                 _exit(ret);   
             }else if(pid > 0){
                 pthread_mutex_lock(&list_mutex);
-                add_client(&listhead, pid, inet_ntoa(sock_addr.sin_addr));
+                add_client(&listhead, pid, c_fd, inet_ntoa(sock_addr.sin_addr));
                 pthread_mutex_unlock(&list_mutex);
             }else{
                 perror("fork:");

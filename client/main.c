@@ -2,6 +2,7 @@
 
 int main(int argc, char **argv)
 {
+    int flags;
     int ret;
     int sock_fd;
     struct sockaddr_in c_addr;
@@ -14,6 +15,11 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
+    
+    flags=fcntl(fileno(stdin),F_GETFL);
+    flags|=O_NONBLOCK;
+    fcntl(fileno(stdin),F_SETFL,flags);
+
     sock_fd = socket(AF_INET, SOCK_STREAM, 0);
     c_addr.sin_family = AF_INET;
     c_addr.sin_addr.s_addr = inet_addr(argv[1]);
@@ -24,13 +30,16 @@ int main(int argc, char **argv)
         exit(-1);
     }
     printf("==============CONNECT==============\n");
-
     while(1){
-        ret = get_terminal_cmd(&cmd);
+        ret = get_terminal_cmd(sock_fd, &cmd);
         if(ret == ERR){
             printf("CMD NO FIND\n");
         }else{
-            client_shell(sock_fd, cmd);
+            ret = client_shell(sock_fd, cmd);
+            if(ret == QUIT)
+            {
+                break;
+            }
         }
     }
 

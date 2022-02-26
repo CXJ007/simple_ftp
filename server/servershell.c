@@ -6,7 +6,7 @@ static void func_ls_pwd(struct server_cmd cmd);
 static void func_cd(struct server_cmd cmd);
 static void func_help(void);
 static void func_show(struct client_list *head);
-static void func_kill(struct server_cmd cmd);
+static void func_kill(struct server_cmd cmd, struct client_list *phead);
 static void func_quit(struct client_list *head);
 ///////////////////////////father
 
@@ -29,7 +29,7 @@ void *server_guard(void *argc)
                 case SERVER_CMD_SHOW:
                     func_show(plisthead);break;
                 case SERVER_CMD_KILL:
-                    func_kill(cmd);break;
+                    func_kill(cmd, plisthead);break;
                     case SERVER_CMD_QUITE:
                     func_quit(plisthead);break;
                 case SERVER_CMD_LS:
@@ -64,12 +64,27 @@ static void func_quit(struct client_list *head)
     pthread_exit(NULL);
 }
 
-static void func_kill(struct server_cmd cmd)
+static void func_kill(struct server_cmd cmd, struct client_list *phead)
 {
-    union sigval value;
     int i;
+    int fd;
+    client_list *tmp = phead;
+    union sigval value;
+
     for(i=1;i<cmd.cmdnum;i++){
-        sigqueue(atoi(*(cmd.cmdargc+i)),SIGRTMAX-2,value);
+        while(tmp->next != NULL){
+            tmp = tmp->next;
+            if(tmp->pid == atoi(*(cmd.cmdargc+i))){
+                fd = tmp->fd;
+            }
+        }
+        write(fd,"quit",sizeof("quit"));
+        //printf(".......%d\n",atoi(*(cmd.cmdargc+i)));//必须在信号中断前发送quit，我猜测是产生了EINTR，或在是信号改变sw，while
+        sigqueue(atoi(*(cmd.cmdargc+i)),SIGRTMAX-2,value);//出现问题感觉因该是EINTR因为main的while那里就出现过中断的情况
+                                                        //如果在后发送client recv只有大小没有数据
+                                                        //可以去main fork里面取消3个//
+                                                         //看了一下午抓着bug了
+        close(fd);
     }
 }
 
@@ -82,7 +97,7 @@ static void func_help(void)
 {
     printf("============SIMPLE TFT=============\n");
     printf("  CMD:\n\thelp\n\tquit:quit server(ending service is dangerous)\n\t\
-kill:kill pid (ending the client is dangerous)\n\tshow:ip,port,pid,path\n\t\
+kill:kill pid (ending the client is dangerous)\n\tshow:ip,port,pid,fd,path\n\t\
 ls:same as shell\n\tpwd\n\tcd: cd .. / cd path(bug)\n");
     printf("AUTHOR:CXJ  LICENSE:GPL\n");
     printf("===================================\n");
@@ -211,7 +226,7 @@ static int get_terminal_cmd(struct server_cmd *cmd)
 
 
 
-void add_client(struct client_list *head, int pid, char *ipbuf)
+void add_client(struct client_list *head, int pid, int fd, char *ipbuf)
 {
     client_list *node;
     if(head == NULL)
@@ -221,6 +236,7 @@ void add_client(struct client_list *head, int pid, char *ipbuf)
     node = malloc(sizeof(struct client_list));
     node->next = head->next;
     node->pid = pid;
+    node->fd = fd;
     strcpy(node->ipbuf,ipbuf);
     head->next = node;
 }
@@ -247,7 +263,7 @@ static void show_client(struct client_list *head)
     printf("======SERVER IP:%s port:%d\n",tmp->ipbuf,tmp->pid);
     while(tmp->next != NULL){
         tmp = tmp->next;
-        printf("======CLIENT IP:%s pid:%d\n",tmp->ipbuf,tmp->pid);
+        printf("======CLIENT IP:%s pid:%d fd:%d\n",tmp->ipbuf,tmp->pid,tmp->fd);
     }
 }
 

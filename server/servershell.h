@@ -35,6 +35,7 @@
 typedef struct client_list{
     struct client_list *next;
     int pid;
+    int fd;
     char ipbuf[16];
 }client_list;
 
@@ -49,7 +50,7 @@ typedef struct server_cmd{
 int get_local_addr(char *addrbuf);
 void *server_guard(void *argc);
 int server_hand(int fd);
-void add_client(struct client_list *head, int pid, char *ipbuf);
+void add_client(struct client_list *head, int pid, int fd, char *ipbuf);
 void rm_client(struct client_list *head, int pid, char *ipbuf);
 
 #endif

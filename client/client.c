@@ -1,15 +1,20 @@
 #include "client.h"
 
-
+static int get_server_cmd(int c_fd, struct client_cmd *cmd);
 static void func_lls_lpwd(struct client_cmd cmd);
 static void func_lcd(struct client_cmd cmd);
 static void func_ls_pwd(int fd, struct client_cmd cmd);
+static int func_quit(int c_fd);
 
-void client_shell(int fd, struct client_cmd cmd)
+int client_shell(int fd, struct client_cmd cmd)
 {
+    int ret = OK;
     switch(cmd.cmdswitch){
                 case CLIENT_CMD_NULL:
                     break;
+                case CLIENT_CMD_QUIT:
+                    func_quit(fd);
+                    ret = QUIT;break;
                 case CLIENT_CMD_LPWD:
                 case CLIENT_CMD_LLS:
                     func_lls_lpwd(cmd);break;
@@ -21,10 +26,11 @@ void client_shell(int fd, struct client_cmd cmd)
                 case CLIENT_CMD_PWD:
                     func_ls_pwd(fd,cmd);break;
             }
+    return ret;
 }
 
 
-int get_terminal_cmd(struct client_cmd *cmd)
+int get_terminal_cmd(int c_fd, struct client_cmd *cmd)
 {
     char buf[128];
     char (*tmp)[FILE_NAME_LEN] = cmd->cmdargc;
@@ -33,7 +39,12 @@ int get_terminal_cmd(struct client_cmd *cmd)
     // puts("==>");
     // gets(buf);//不安全
     fputs("==>", stdout);
-    while(fgets(buf, sizeof(char)*128, stdin) == NULL);
+    while(fgets(buf, sizeof(char)*128, stdin) == NULL){
+        if(get_server_cmd(c_fd,cmd) == OK){
+            printf("%s\n",cmd->cmdbuf);
+            break;
+        }
+    }
     if(strcmp(buf, "\n") == 0){
         cmd->cmdswitch = CLIENT_CMD_NULL;
         return OK;
@@ -69,9 +80,42 @@ int get_terminal_cmd(struct client_cmd *cmd)
         cmd->cmdswitch = CLIENT_CMD_LS;
         strcpy(cmd->cmdbuf,buf);
         return OK;
+    }else if(strcmp(cmd->cmdbuf, "quit") == 0){
+        cmd->cmdswitch = CLIENT_CMD_QUIT;
+        return OK;
     }
 
     return ERR;
+}
+
+static int get_server_cmd(int c_fd, struct client_cmd *cmd)
+{
+    int ret;
+    char buf[40];
+
+    memset(buf, 0, sizeof(buf));
+
+    ret = recv(c_fd, buf, sizeof(buf), MSG_DONTWAIT);//MSG_DONTWAIT
+    if((ret==-1) && (errno!=EAGAIN)){
+        perror("recv");
+    }
+    
+    if(strcmp("quit", buf) == 0){
+        ret = OK;
+        strcpy(cmd->cmdbuf, "quit");
+    }else{
+        ret = ERR; 
+    }
+    
+    return ret;
+}
+
+static int func_quit(int c_fd)
+{
+    char buf[10];
+    // while(recv(c_fd, buf, sizeof(buf), MSG_PEEK) > 0)
+    //     ;
+    return QUIT;
 }
 
 static void func_lls_lpwd(struct client_cmd cmd)
@@ -134,16 +178,16 @@ static void func_lcd(struct client_cmd cmd)
 
 }
 
-static void func_ls_pwd(int fd, struct client_cmd cmd)
+static void func_ls_pwd(int c_fd, struct client_cmd cmd)
 {
     int ret;
     char buf[1024];
 
     memset(buf, 0, sizeof(buf));
-    ret = write(fd, cmd.cmdbuf,strlen(cmd.cmdbuf));
+    ret = send(c_fd, cmd.cmdbuf,strlen(cmd.cmdbuf), 0);
     if(ret != strlen(cmd.cmdbuf)){
         printf("send cmd err\n");
     }
-    ret = read(fd, buf, sizeof(buf));
+    ret = recv(c_fd, buf, sizeof(buf),0);
     printf("%s", buf);
 }
