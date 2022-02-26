@@ -7,4 +7,4 @@ main.o : server.h servershell.h
 
 .PHONY : clean
 clean:
-	rm $(objects)
+	rm server $(objects)

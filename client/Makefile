@@ -7,4 +7,4 @@ main.o : client.h
 
 .PHONY : clean
 clean:
-	rm $(objects)
+	rm client $(objects)
