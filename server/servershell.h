@@ -14,7 +14,11 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
+
+#define FIFO_PATH "/home/cxj/Desktop/FTP/server/fifo"
 //cmd
 #define SERVER_CMD_NULL 0
 #define SERVER_CMD_HELP 1 
@@ -37,6 +41,7 @@ typedef struct client_list{
     int pid;
     int fd;
     char ipbuf[16];
+    char path[100];
 }client_list;
 
 
@@ -50,7 +55,7 @@ typedef struct server_cmd{
 int get_local_addr(char *addrbuf);
 void *server_guard(void *argc);
 int server_hand(int fd);
-void add_client(struct client_list *head, int pid, int fd, char *ipbuf);
+void add_client(struct client_list *head, int pid, int fd, char *ipbuf, char *path);
 void rm_client(struct client_list *head, int pid, char *ipbuf);
 
 #endif

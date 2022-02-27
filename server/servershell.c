@@ -9,6 +9,7 @@ static void func_show(struct client_list *head);
 static void func_kill(struct server_cmd cmd, struct client_list *phead);
 static void func_quit(struct client_list *head);
 ///////////////////////////father
+extern pthread_mutex_t list_mutex;
 
 void *server_guard(void *argc)
 {
@@ -48,16 +49,24 @@ void *server_guard(void *argc)
 
 static void func_quit(struct client_list *head)
 {
-    //show_client(struct client_list *head)
+    int fd;
+    int i;
     struct client_list *tmp = head;
     union sigval value;
     char buf[20];
 
     memset(buf, 0,sizeof(buf)); 
+    pthread_mutex_lock(&list_mutex);
     while(tmp->next != NULL){
         tmp = tmp->next;
-        sigqueue(tmp->pid,SIGRTMAX-2,value);      
+        fd = tmp->fd;
+        write(fd,"quit",sizeof("quit"));
+        sigqueue(tmp->pid,SIGRTMAX-2,value);                                          
+        close(fd);
     }
+    pthread_mutex_unlock(&list_mutex);
+
+
     printf("================END================\n");
     sprintf(buf, "kill -9 %d", getpid());
     system(buf);//TIME_WAIT close（bug）
@@ -71,13 +80,16 @@ static void func_kill(struct server_cmd cmd, struct client_list *phead)
     client_list *tmp = phead;
     union sigval value;
 
+    pthread_mutex_lock(&list_mutex);
     for(i=1;i<cmd.cmdnum;i++){
         while(tmp->next != NULL){
             tmp = tmp->next;
             if(tmp->pid == atoi(*(cmd.cmdargc+i))){
                 fd = tmp->fd;
+                break;
             }
         }
+        pthread_mutex_unlock(&list_mutex);
         write(fd,"quit",sizeof("quit"));
         //printf(".......%d\n",atoi(*(cmd.cmdargc+i)));//必须在信号中断前发送quit，我猜测是产生了EINTR，或在是信号改变sw，while
         sigqueue(atoi(*(cmd.cmdargc+i)),SIGRTMAX-2,value);//出现问题感觉因该是EINTR因为main的while那里就出现过中断的情况
@@ -226,7 +238,7 @@ static int get_terminal_cmd(struct server_cmd *cmd)
 
 
 
-void add_client(struct client_list *head, int pid, int fd, char *ipbuf)
+void add_client(struct client_list *head, int pid, int fd, char *ipbuf, char *path)
 {
     client_list *node;
     if(head == NULL)
@@ -238,6 +250,7 @@ void add_client(struct client_list *head, int pid, int fd, char *ipbuf)
     node->pid = pid;
     node->fd = fd;
     strcpy(node->ipbuf,ipbuf);
+    strcpy(node->path,path);
     head->next = node;
 }
 
@@ -263,7 +276,7 @@ static void show_client(struct client_list *head)
     printf("======SERVER IP:%s port:%d\n",tmp->ipbuf,tmp->pid);
     while(tmp->next != NULL){
         tmp = tmp->next;
-        printf("======CLIENT IP:%s pid:%d fd:%d\n",tmp->ipbuf,tmp->pid,tmp->fd);
+        printf("======CLIENT IP:%s pid:%d fd:%d path:%s\n",tmp->ipbuf,tmp->pid,tmp->fd,tmp->path);
     }
 }
 

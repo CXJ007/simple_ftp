@@ -5,6 +5,7 @@ static void func_lls_lpwd(struct client_cmd cmd);
 static void func_lcd(struct client_cmd cmd);
 static void func_ls_pwd(int fd, struct client_cmd cmd);
 static int func_quit(int c_fd);
+static void func_cd(int c_fd, struct client_cmd cmd);
 
 int client_shell(int fd, struct client_cmd cmd)
 {
@@ -25,6 +26,9 @@ int client_shell(int fd, struct client_cmd cmd)
                 case CLIENT_CMD_LS:
                 case CLIENT_CMD_PWD:
                     func_ls_pwd(fd,cmd);break;
+                case CLIENT_CMD_CD:
+                    func_cd(fd,cmd);break;
+                    
             }
     return ret;
 }
@@ -41,10 +45,10 @@ int get_terminal_cmd(int c_fd, struct client_cmd *cmd)
     fputs("==>", stdout);
     while(fgets(buf, sizeof(char)*128, stdin) == NULL){
         if(get_server_cmd(c_fd,cmd) == OK){
-            printf("%s\n",cmd->cmdbuf);
             break;
         }
     }
+    puts(buf);
     if(strcmp(buf, "\n") == 0){
         cmd->cmdswitch = CLIENT_CMD_NULL;
         return OK;
@@ -80,8 +84,12 @@ int get_terminal_cmd(int c_fd, struct client_cmd *cmd)
         cmd->cmdswitch = CLIENT_CMD_LS;
         strcpy(cmd->cmdbuf,buf);
         return OK;
-    }else if(strcmp(cmd->cmdbuf, "quit") == 0){
+    }else if((strcmp(cmd->cmdbuf, "quit")==0) || (strcmp(buf, "quit\n")==0)){
         cmd->cmdswitch = CLIENT_CMD_QUIT;
+        return OK;
+    }else if((strstr(buf, "cd")==buf) && (*(buf+2)==32)){
+        cmd->cmdswitch = CLIENT_CMD_CD;
+        strcpy(cmd->cmdbuf,buf);
         return OK;
     }
 
@@ -109,6 +117,8 @@ static int get_server_cmd(int c_fd, struct client_cmd *cmd)
     
     return ret;
 }
+
+
 
 static int func_quit(int c_fd)
 {
@@ -190,4 +200,16 @@ static void func_ls_pwd(int c_fd, struct client_cmd cmd)
     }
     ret = recv(c_fd, buf, sizeof(buf),0);
     printf("%s", buf);
+}
+
+static void func_cd(int c_fd, struct client_cmd cmd)
+{
+    int ret;
+    
+    ret = send(c_fd, cmd.cmdbuf,strlen(cmd.cmdbuf), 0);
+    if(ret != strlen(cmd.cmdbuf)){
+        printf("send cmd err\n");
+    }
+    printf("cd\n");
+
 }
