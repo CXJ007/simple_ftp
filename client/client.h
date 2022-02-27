@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <sys/stat.h>
 
 
 #define DISCONNECT 0
@@ -32,6 +33,8 @@
 #define CLIENT_CMD_LCD   7
 #define CLIENT_CMD_LRM   8
 #define CLIENT_CMD_QUIT   9
+#define CLIENT_CMD_GET   10
+#define CLIENT_CMD_PUT   11
 
 
 #define FILE_NAME_LEN 40

@@ -5,7 +5,8 @@
 static int get_client_cmd(struct server_cmd *cmd, char *buf);
 static void func_ls_pwd(int fd, struct server_cmd cmd);
 static void func_cd(struct server_cmd cmd);
-
+static void func_get(int s_fd, struct server_cmd cmd);
+static void func_put(int s_fd, struct server_cmd cmd);
 
 int sw;
 
@@ -30,7 +31,7 @@ int server_hand(int fd)
         if(len<=0 && errno!=EINTR){
             return DISCONNECT;
         }
-        printf("cmd %s cmd", buf);
+        //printf("%s cmd", buf);
         get_client_cmd(&recv_cmd, buf);
         switch(recv_cmd.cmdswitch){
             case CLIENT_CMD_LS:
@@ -38,6 +39,10 @@ int server_hand(int fd)
                 func_ls_pwd(fd, recv_cmd);break;
             case CLIENT_CMD_CD:
                 func_cd(recv_cmd);break;
+            case CLIENT_CMD_GET:
+                func_get(fd, recv_cmd);break;
+            case CLIENT_CMD_PUT:
+                func_put(fd, recv_cmd);break;
         }
     }
     return DISCONNECT;
@@ -74,7 +79,28 @@ static int get_client_cmd(struct server_cmd *cmd, char *buf)
         }
         //printf("%s    %s\n", *cmd->cmdargc, *(cmd->cmdargc+1));
         return OK;
+    }else if((strstr(buf, "get")==buf) && (*(buf+3)==32)){
+        cmd->cmdswitch = CLIENT_CMD_GET;
+        p = strtok(buf, " ");
+        while(p){
+            strcpy(*(tmp+cmd->cmdnum), p); 
+            cmd->cmdnum++;
+            p = strtok(NULL, " ");
+        }
+        //printf("get   %s    %s\n", *cmd->cmdargc, *(cmd->cmdargc+1));
+        return OK;
+    }else if((strstr(buf, "put")==buf) && (*(buf+3)==32)){
+        cmd->cmdswitch = CLIENT_CMD_PUT;
+        p = strtok(buf, " ");
+        while(p){
+            strcpy(*(tmp+cmd->cmdnum), p); 
+            cmd->cmdnum++;
+            p = strtok(NULL, " ");
+        }
+        //printf("get   %s    %s\n", *cmd->cmdargc, *(cmd->cmdargc+1));
+        return OK;
     }
+
     return ERR;
 }
 
@@ -148,5 +174,51 @@ static void func_cd(struct server_cmd cmd)
     }
     write(fd, path, sizeof(path));
     close(fd);
+}
+
+static void func_get(int s_fd, struct server_cmd cmd)
+{
+    int ret;
+    int fd;
+    char buf[1024];
+    char path[FILE_NAME_LEN];
+    memset(buf, 0, sizeof(buf));
+    memset(path, 0, sizeof(path));
+
+    strcpy(path, *(cmd.cmdargc+1));
+    if(access(path, F_OK) == -1){
+        strcpy(path, "file does not exist");
+        write(s_fd,path, sizeof(path));
+    }else{
+        fd = open(path,O_RDONLY);
+        read(fd, buf,sizeof(buf));
+        write(s_fd,buf, sizeof(path));
+        close(fd);
+    }
+}
+
+static void func_put(int s_fd, struct server_cmd cmd)
+{
+    int ret;
+    int fd;
+    char buf[1024];
+    char path[FILE_NAME_LEN];
+    memset(buf, 0, sizeof(buf));
+    memset(path, 0, sizeof(path));
+
+    strcpy(path, *(cmd.cmdargc+1));
+    if(access(path, F_OK) == 0){
+        strcpy(path, "file exist");
+        write(s_fd,path, sizeof(path));
+    }else{
+        strcpy(path, "file no exist");
+        write(s_fd,path, sizeof(path));
+        read(s_fd, buf, sizeof(buf));
+        strcpy(path, *(cmd.cmdargc+1));
+        fd = open(path,O_CREAT|O_WRONLY);
+        write(fd, buf, sizeof(buf));
+        fchmod(fd, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+        close(fd);
+    }
 
 }

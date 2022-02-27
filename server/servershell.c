@@ -107,11 +107,11 @@ static void func_show(struct client_list *head)
 
 static void func_help(void)
 {
-    printf("============SIMPLE TFT=============\n");
+    printf("============SIMPLE FTP=============\n");
     printf("  CMD:\n\thelp\n\tquit:quit server(ending service is dangerous)\n\t\
-kill:kill pid (ending the client is dangerous)\n\tshow:ip,port,pid,fd,path\n\t\
+kill:kill pid\n\tshow:ip,port,pid,fd,path\n\t\
 ls:same as shell\n\tpwd\n\tcd: cd .. / cd path(bug)\n");
-    printf("AUTHOR:CXJ  LICENSE:GPL\n");
+    printf("AUTHOR:CXJ  LICENSE:GPL  DATE:2022/2/27\n");
     printf("===================================\n");
 }
 

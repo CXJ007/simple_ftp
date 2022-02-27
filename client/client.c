@@ -6,6 +6,9 @@ static void func_lcd(struct client_cmd cmd);
 static void func_ls_pwd(int fd, struct client_cmd cmd);
 static int func_quit(int c_fd);
 static void func_cd(int c_fd, struct client_cmd cmd);
+static void func_get(int c_fd, struct client_cmd cmd);
+static void func_put(int c_fd, struct client_cmd cmd);
+static void func_help(void);
 
 int client_shell(int fd, struct client_cmd cmd)
 {
@@ -16,6 +19,8 @@ int client_shell(int fd, struct client_cmd cmd)
                 case CLIENT_CMD_QUIT:
                     func_quit(fd);
                     ret = QUIT;break;
+                case CLIENT_CMD_HELP:
+                    func_help();break;
                 case CLIENT_CMD_LPWD:
                 case CLIENT_CMD_LLS:
                     func_lls_lpwd(cmd);break;
@@ -28,6 +33,10 @@ int client_shell(int fd, struct client_cmd cmd)
                     func_ls_pwd(fd,cmd);break;
                 case CLIENT_CMD_CD:
                     func_cd(fd,cmd);break;
+                case CLIENT_CMD_GET:
+                    func_get(fd,cmd);break;
+                case CLIENT_CMD_PUT:
+                    func_put(fd,cmd);break;
                     
             }
     return ret;
@@ -48,7 +57,6 @@ int get_terminal_cmd(int c_fd, struct client_cmd *cmd)
             break;
         }
     }
-    puts(buf);
     if(strcmp(buf, "\n") == 0){
         cmd->cmdswitch = CLIENT_CMD_NULL;
         return OK;
@@ -89,6 +97,34 @@ int get_terminal_cmd(int c_fd, struct client_cmd *cmd)
         return OK;
     }else if((strstr(buf, "cd")==buf) && (*(buf+2)==32)){
         cmd->cmdswitch = CLIENT_CMD_CD;
+        strcpy(cmd->cmdbuf,buf);
+        return OK;
+    }else if((strstr(buf, "get")==buf) && (*(buf+3)==32)){
+        char *p = NULL;
+        cmd->cmdswitch = CLIENT_CMD_GET;
+        strcpy(cmd->cmdbuf,buf);
+        p = strtok(buf, " ");
+        while(p){
+            //printf("qweqw %s\n",p);
+            strcpy(*(tmp+cmd->cmdnum), p); 
+            cmd->cmdnum++;
+            p = strtok(NULL, " /");
+        }
+        return OK;
+    }else if((strstr(buf, "put")==buf) && (*(buf+3)==32)){
+        char *p = NULL;
+        cmd->cmdswitch = CLIENT_CMD_PUT;
+        strcpy(cmd->cmdbuf,buf);
+        p = strtok(buf, " ");
+        while(p){
+            //printf("qweqw %s\n",p);
+            strcpy(*(tmp+cmd->cmdnum), p); 
+            cmd->cmdnum++;
+            p = strtok(NULL, " /");
+        }
+        return OK;
+    }else if(strcmp(buf, "help\n") == 0){
+        cmd->cmdswitch = CLIENT_CMD_HELP;
         strcpy(cmd->cmdbuf,buf);
         return OK;
     }
@@ -210,6 +246,81 @@ static void func_cd(int c_fd, struct client_cmd cmd)
     if(ret != strlen(cmd.cmdbuf)){
         printf("send cmd err\n");
     }
-    printf("cd\n");
+}
 
+static void func_get(int c_fd, struct client_cmd cmd)
+{
+    int ret;
+    int fd;
+    char buf[1024];
+    char cmdbuf[40];
+    char (*p)[FILE_NAME_LEN] = cmd.cmdargc;
+    memset(buf, 0, sizeof(buf));
+    memset(cmdbuf, 0, sizeof(cmdbuf));
+
+
+    strncpy(cmdbuf, *(p+1),strlen(*(p+1))-1);
+    if(access(cmdbuf, F_OK) == 0){
+        printf("file exists\n");
+    }else{
+        sprintf(cmdbuf, "%s %s", *p,*(p+1));
+        ret = send(c_fd, cmd.cmdbuf,strlen(cmd.cmdbuf), 0);
+        if(ret != strlen(cmd.cmdbuf)){
+            printf("send cmd err\n");
+        }
+        read(c_fd, buf, sizeof(buf));
+        if(strcmp(buf, "file does not exist") == 0){
+            printf("server file does not exist\n");
+        }else{
+            memset(cmdbuf, 0, sizeof(cmdbuf));
+            strncpy(cmdbuf, *(p+1),strlen(*(p+1))-1);
+            fd = open(cmdbuf,O_CREAT|O_WRONLY);
+            write(fd, buf, sizeof(buf));
+            fchmod(fd, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+            close(fd);
+        }
+    }
+}
+
+static void func_put(int c_fd, struct client_cmd cmd)
+{
+    int ret;
+    int fd;
+    char buf[1024];
+    char cmdbuf[40];
+    char (*p)[FILE_NAME_LEN] = cmd.cmdargc;
+
+    memset(buf, 0, sizeof(buf));
+    memset(cmdbuf, 0, sizeof(cmdbuf));
+
+    strncpy(cmdbuf, *(p+1),strlen(*(p+1))-1);
+    if(access(cmdbuf, F_OK) == -1){
+        printf("file does not exist\n");
+    }else{
+        ret = send(c_fd, cmd.cmdbuf,strlen(cmd.cmdbuf), 0);
+        if(ret != strlen(cmd.cmdbuf)){
+            printf("send cmd err\n");
+        }
+        read(c_fd, buf, sizeof(buf));
+        if(strcmp(buf, "file exist") == 0){
+            printf("server file exist\n");
+        }else{
+            memset(cmdbuf, 0, sizeof(cmdbuf));
+            strncpy(cmdbuf, *(p+1),strlen(*(p+1))-1);
+            fd = open(cmdbuf,O_RDONLY);
+            read(fd, buf,sizeof(buf));
+            write(c_fd,buf, sizeof(buf));
+            close(fd);
+        }
+
+    }
+
+}
+
+static void func_help(void)
+{
+    printf("============SIMPLE FTP=============\n");
+    printf("  CMD:\n\thelp\n\tls\n\tcd\n\tpwd\n\tlls\n\tlcd\n\tlpwd\n\tget\n\tput\n");
+    printf("AUTHOR:CXJ  LICENSE:GPL  DATE:2022/2/27\n");
+    printf("===================================\n");
 }
