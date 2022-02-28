@@ -305,6 +305,7 @@ static void func_put(int c_fd, struct client_cmd cmd)
         if(strcmp(buf, "file exist") == 0){
             printf("server file exist\n");
         }else{
+            memset(buf, 0, sizeof(buf));
             memset(cmdbuf, 0, sizeof(cmdbuf));
             strncpy(cmdbuf, *(p+1),strlen(*(p+1))-1);
             fd = open(cmdbuf,O_RDONLY);

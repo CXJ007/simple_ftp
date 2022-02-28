@@ -214,6 +214,7 @@ static void func_put(int s_fd, struct server_cmd cmd)
         strcpy(path, "file no exist");
         write(s_fd,path, sizeof(path));
         read(s_fd, buf, sizeof(buf));
+        memset(path, 0, sizeof(path));
         strcpy(path, *(cmd.cmdargc+1));
         fd = open(path,O_CREAT|O_WRONLY);
         write(fd, buf, sizeof(buf));
